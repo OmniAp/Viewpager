@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Full Screen View Pager</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    font-family: Arial, sans-serif;
+    overflow: hidden; /* no scroll */
+    background: #fff; /* changed background to white */
+  }
+
+  .slider-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+    cursor: grab;
+    background: #fff; /* white background */
+  }
+
+  .slider {
+    display: flex;
+    height: 100%;
+    transition: transform 0.5s ease-in-out;
+  }
+
+  .slider a {
+    flex: 0 0 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .slider img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    object-position: center;
+    user-select: none;
+    pointer-events: none;
+    display: block;
+  }
+
+  .dots {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    z-index: 100;
+  }
+
+  .dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.3); /* darker dots for visibility on white */
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+
+  .dot.active {
+    background: #008cff;
+  }
+</style>
+</head>
+<body>
+
+<div class="slider-container" id="sliderContainer">
+  <div class="slider" id="slider"></div>
+  <div class="dots" id="dots"></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+import { getDatabase, ref, child, get } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDvFDByPPo9zgwKLdPaREz1OVMQCXmPfrs",
+  authDomain: "bets-d795d.firebaseapp.com",
+  databaseURL: "https://bets-d795d-default-rtdb.firebaseio.com",
+  projectId: "bets-d795d",
+  storageBucket: "bets-d795d.appspot.com",
+  messagingSenderId: "384386108287",
+  appId: "1:384386108287:android:d238a5ec8068d9bb9be84a"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+const slider = document.getElementById('slider');
+const dotsContainer = document.getElementById('dots');
+let slides = [];
+let currentIndex = 0;
+let autoSlideInterval;
+
+// Load images from Firebase
+async function loadSliderImages() {
+  const snap = await get(child(ref(db), "viewpager"));
+  if (snap.exists()) {
+    slides = Object.values(snap.val());
+    if (slides.length > 0) {
+      renderSlider();
+      startAutoSlide();
+    } else {
+      slider.innerHTML = "<p style='color:black;text-align:center;'>No slides found</p>";
+    }
+  } else {
+    slider.innerHTML = "<p style='color:black;text-align:center;'>No slides found</p>";
+  }
+}
+
+// Render slider & dots
+function renderSlider() {
+  slider.innerHTML = '';
+  dotsContainer.innerHTML = '';
+
+  slides.forEach((slide, idx) => {
+    const a = document.createElement('a');
+    a.href = slide.link || '#';
+    a.target = "_blank";
+
+    const img = document.createElement('img');
+    img.src = slide.imageUrl || slide.image || "#";
+    img.alt = "slide";
+    img.onerror = () => { img.style.background = "#ddd"; img.alt = "Image not available"; }
+
+    a.appendChild(img);
+    slider.appendChild(a);
+
+    const dot = document.createElement('div');
+    dot.className = "dot" + (idx === 0 ? " active" : "");
+    dot.onclick = () => goToSlide(idx);
+    dotsContainer.appendChild(dot);
+  });
+
+  // Swipe support
+  let startX = 0;
+  slider.addEventListener("touchstart", e => startX = e.touches[0].clientX);
+  slider.addEventListener("touchend", e => {
+    const endX = e.changedTouches[0].clientX;
+    if (endX - startX > 50) prevSlide();
+    else if (startX - endX > 50) nextSlide();
+  });
+
+  goToSlide(0);
+}
+
+function goToSlide(index) {
+  currentIndex = index;
+  slider.style.transform = `translateX(-${index*100}%)`;
+  document.querySelectorAll(".dot").forEach((dot,i) => dot.classList.toggle("active", i === index));
+}
+
+function nextSlide() {
+  currentIndex = (currentIndex + 1) % slides.length;
+  goToSlide(currentIndex);
+}
+
+function prevSlide() {
+  currentIndex = (currentIndex - 1 + slides.length) % slides.length;
+  goToSlide(currentIndex);
+}
+
+function startAutoSlide() {
+  clearInterval(autoSlideInterval);
+  autoSlideInterval = setInterval(nextSlide, 4000);
+}
+
+// Start
+loadSliderImages();
+</script>
+
+</body>
+</html>
